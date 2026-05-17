@@ -2,24 +2,13 @@ const path = require('path');
 const fs = require('fs');
 const cloudinary = require('../config/cloudinary');
 const Passport = require('../models/Passport');
+const { DATE_FIELDS, REQUIRED_FIELDS } = require('../config/passportFields');
 const { generatePassportSlug } = require('../utils/slug');
 const { generateQrCodeImage } = require('../utils/qrGenerator');
 const { buildPublicPassportUrl, getApiBaseUrl } = require('../utils/publicUrl');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
 const { getFieldLabel } = require('../utils/fieldLabels');
-
-const REQUIRED_FIELDS = [
-  'fullName',
-  'fatherName',
-  'motherName',
-  'destinationCountry',
-  'passportNumber',
-  'passportIssueDate',
-  'bmetId',
-  'clearanceId',
-  'rlId',
-  'clearanceDate',
-];
+const { applyPassportPayload, buildCreatePayload } = require('../utils/passportPayload');
 
 const validatePassportBody = (body) => {
   const errors = {};
@@ -31,13 +20,12 @@ const validatePassportBody = (body) => {
     }
   });
 
-  if (body.passportIssueDate && Number.isNaN(new Date(body.passportIssueDate).getTime())) {
-    errors.passportIssueDate = 'Enter a valid passport issue date';
-  }
-
-  if (body.clearanceDate && Number.isNaN(new Date(body.clearanceDate).getTime())) {
-    errors.clearanceDate = 'Enter a valid clearance date';
-  }
+  DATE_FIELDS.forEach((field) => {
+    if (!body[field]) return;
+    if (Number.isNaN(new Date(body[field]).getTime())) {
+      errors[field] = `Enter a valid ${getFieldLabel(field).toLowerCase()}`;
+    }
+  });
 
   return errors;
 };
@@ -101,6 +89,14 @@ const getFileInfo = (file) => {
   };
 };
 
+const resolveAttachment = async (files) => {
+  const attachmentFileObj = files?.attachmentFile?.[0] ? getFileInfo(files.attachmentFile[0]) : { url: '', fileType: '', originalName: '' };
+  if (attachmentFileObj.url === '' && files?.attachmentFile?.[0]) {
+    attachmentFileObj.url = await uploadFile(files.attachmentFile[0]);
+  }
+  return attachmentFileObj;
+};
+
 const createPassport = async (req, res) => {
   const requestBody = req.body;
   const validationErrors = validatePassportBody(requestBody);
@@ -109,11 +105,14 @@ const createPassport = async (req, res) => {
     return errorResponse(res, 'Please fix the highlighted fields', 400, validationErrors);
   }
 
-  const existingPassport = await Passport.findOne({ passportNumber: requestBody.passportNumber.trim().toUpperCase() });
-  if (existingPassport) {
-    return errorResponse(res, 'Passport number already exists', 400, {
-      passportNumber: 'This passport number is already registered',
-    });
+  const passportNumber = requestBody.passportNumber?.trim().toUpperCase();
+  if (passportNumber) {
+    const existingPassport = await Passport.findOne({ passportNumber });
+    if (existingPassport) {
+      return errorResponse(res, 'Passport number already exists', 400, {
+        passportNumber: 'This passport number is already registered',
+      });
+    }
   }
 
   let uniqueSlug = generatePassportSlug();
@@ -123,24 +122,11 @@ const createPassport = async (req, res) => {
 
   const publicUrl = buildPublicPassportUrl(uniqueSlug);
   const qrCodeImage = await generateQrCodeImage(publicUrl);
-  
-  const attachmentFileObj = req.files?.attachmentFile?.[0] ? getFileInfo(req.files.attachmentFile[0]) : { url: '', fileType: '', originalName: '' };
-  if (attachmentFileObj.url === '' && req.files?.attachmentFile?.[0]) {
-    attachmentFileObj.url = await uploadFile(req.files.attachmentFile[0]);
-  }
+  const attachmentFile = await resolveAttachment(req.files);
 
   const passport = await Passport.create({
-    fullName: requestBody.fullName.trim(),
-    fatherName: requestBody.fatherName.trim(),
-    motherName: requestBody.motherName.trim(),
-    destinationCountry: requestBody.destinationCountry.trim(),
-    passportNumber: requestBody.passportNumber.trim().toUpperCase(),
-    passportIssueDate: new Date(requestBody.passportIssueDate),
-    bmetId: requestBody.bmetId.trim(),
-    clearanceId: requestBody.clearanceId.trim(),
-    rlId: requestBody.rlId.trim(),
-    clearanceDate: new Date(requestBody.clearanceDate),
-    attachmentFile: attachmentFileObj,
+    ...buildCreatePayload(requestBody),
+    attachmentFile,
     qrCodeImage,
     uniqueSlug,
   });
@@ -159,6 +145,7 @@ const getPassports = async (req, res) => {
       { passportNumber: { $regex: search, $options: 'i' } },
       { fullName: { $regex: search, $options: 'i' } },
       { bmetId: { $regex: search, $options: 'i' } },
+      { clearanceId: { $regex: search, $options: 'i' } },
     ];
   }
 
@@ -206,8 +193,9 @@ const updatePassport = async (req, res) => {
     return errorResponse(res, 'Please fix the highlighted fields', 400, validationErrors);
   }
 
-  if (req.body.passportNumber && req.body.passportNumber !== passport.passportNumber) {
-    const exists = await Passport.findOne({ passportNumber: req.body.passportNumber.trim().toUpperCase() });
+  const nextPassportNumber = req.body.passportNumber?.trim().toUpperCase();
+  if (nextPassportNumber && nextPassportNumber !== passport.passportNumber) {
+    const exists = await Passport.findOne({ passportNumber: nextPassportNumber });
     if (exists) {
       return errorResponse(res, 'Passport number already exists', 400, {
         passportNumber: 'This passport number is already registered',
@@ -221,33 +209,7 @@ const updatePassport = async (req, res) => {
     passport.attachmentFile = fileInfo;
   }
 
-  const allowedFields = [
-    'fullName',
-    'fatherName',
-    'motherName',
-    'destinationCountry',
-    'passportNumber',
-    'passportIssueDate',
-    'bmetId',
-    'clearanceId',
-    'rlId',
-    'clearanceDate',
-  ];
-  
-  allowedFields.forEach((field) => {
-    if (req.body[field]) {
-      const value = req.body[field];
-      if (field.includes('Date')) {
-        passport[field] = new Date(value);
-      } else {
-        passport[field] = value.toString().trim();
-        if (field === 'passportNumber') {
-          passport[field] = passport[field].toUpperCase();
-        }
-      }
-    }
-  });
-
+  applyPassportPayload(passport, req.body);
   await passport.save();
   return successResponse(res, passport, 'EC card updated successfully');
 };
@@ -277,4 +239,3 @@ module.exports = {
   deletePassport,
   getPublicPassport,
 };
-

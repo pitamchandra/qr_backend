@@ -1,15 +1,20 @@
-const normalizeOrigin = (base, defaultPort) => {
+const isLocalHost = (hostname) =>
+  hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
+
+/**
+ * Normalize to origin only. Dev port is appended only for localhost without an explicit port.
+ */
+const normalizeOrigin = (base, devPort) => {
   if (!base) return null;
 
   try {
     const url = new URL(base);
-    const isDefaultHttpPort = url.protocol === 'http:' && (!url.port || url.port === '80');
-    const isDefaultHttpsPort = url.protocol === 'https:' && (!url.port || url.port === '443');
+    const hasExplicitPort = Boolean(url.port);
 
-    if (defaultPort && isDefaultHttpPort && defaultPort !== '80') {
-      url.port = defaultPort;
-    } else if (defaultPort && isDefaultHttpsPort && defaultPort !== '443') {
-      url.port = defaultPort;
+    if (!hasExplicitPort && isLocalHost(url.hostname) && devPort) {
+      if (url.protocol === 'http:' && devPort !== '80') {
+        url.port = devPort;
+      }
     }
 
     return url.origin;
@@ -30,8 +35,13 @@ const getApiBaseUrl = () => {
 
 /** Frontend host for QR codes (Netlify or local Vite) */
 const getFrontendBaseUrl = () => {
-  const port = String(process.env.PORT || 8000);
-  return normalizeOrigin(process.env.FRONTEND_URL || process.env.PUBLIC_URL, port) || getApiBaseUrl();
+  const frontendUrl = process.env.FRONTEND_URL || process.env.PUBLIC_URL;
+  if (frontendUrl) {
+    const vitePort = String(process.env.FRONTEND_DEV_PORT || 5173);
+    return normalizeOrigin(frontendUrl, vitePort) || frontendUrl.replace(/\/$/, '');
+  }
+
+  return getApiBaseUrl();
 };
 
 const buildPublicPassportUrl = (slug) => `${getFrontendBaseUrl()}/passport/${slug}`;

@@ -2,22 +2,38 @@ const mongoose = require('mongoose');
 
 const passportSchema = new mongoose.Schema(
   {
-    fullName: { type: String, required: [true, 'Full name is required'], trim: true },
-    fatherName: { type: String, required: [true, 'Father\'s name is required'], trim: true },
-    motherName: { type: String, required: [true, 'Mother\'s name is required'], trim: true },
-    destinationCountry: { type: String, required: [true, 'Destination country is required'], trim: true },
-    passportNumber: {
-      type: String,
-      required: [true, 'Passport number is required'],
-      unique: true,
-      trim: true,
-      uppercase: true,
-    },
-    passportIssueDate: { type: Date, required: [true, 'Passport issue date is required'] },
-    bmetId: { type: String, required: [true, 'BMET ID is required'], trim: true },
-    clearanceId: { type: String, required: [true, 'Clearance ID is required'], trim: true },
-    rlId: { type: String, required: [true, 'RL ID is required'], trim: true },
-    clearanceDate: { type: Date, required: [true, 'Clearance date is required'] },
+    fullName: { type: String, default: '', trim: true },
+    fatherName: { type: String, default: '', trim: true },
+    motherName: { type: String, default: '', trim: true },
+    birthDate: { type: Date },
+    bloodGroup: { type: String, default: '', trim: true },
+    gender: { type: String, default: '', trim: true },
+    nid: { type: String, default: '', trim: true },
+    destinationCountry: { type: String, default: '', trim: true },
+    employer: { type: String, default: '', trim: true },
+    passportNumber: { type: String, default: '', trim: true, uppercase: true },
+    passportIssueDate: { type: Date },
+    passportExpiryDate: { type: Date },
+    visaNo: { type: String, default: '', trim: true },
+    visaIssueDate: { type: Date },
+    visaExpiryDate: { type: Date },
+    referralNo: { type: String, default: '', trim: true },
+    bmetId: { type: String, default: '', trim: true },
+    clearanceId: { type: String, default: '', trim: true },
+    rlId: { type: String, default: '', trim: true },
+    recruitingAgencyName: { type: String, default: '', trim: true },
+    recruitingAgencyPhone: { type: String, default: '', trim: true },
+    clearanceDate: { type: Date },
+    addressHouseVillageRoad: { type: String, default: '', trim: true },
+    addressPostOffice: { type: String, default: '', trim: true },
+    addressPoliceStation: { type: String, default: '', trim: true },
+    addressUpazila: { type: String, default: '', trim: true },
+    addressDistrict: { type: String, default: '', trim: true },
+    addressDivision: { type: String, default: '', trim: true },
+    emergencyContactName: { type: String, default: '', trim: true },
+    emergencyContactRelation: { type: String, default: '', trim: true },
+    emergencyContactMobile: { type: String, default: '', trim: true },
+    emergencyContactAddress: { type: String, default: '', trim: true },
     attachmentFile: {
       url: { type: String, default: '' },
       fileType: { type: String, default: '' },
@@ -29,7 +45,7 @@ const passportSchema = new mongoose.Schema(
   { strict: true }
 );
 
-passportSchema.index({ passportNumber: 1 });
+passportSchema.index({ passportNumber: 1 }, { unique: true, sparse: true });
 passportSchema.index({ uniqueSlug: 1 });
 
 module.exports = mongoose.model('Passport', passportSchema);
