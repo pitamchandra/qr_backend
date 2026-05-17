@@ -44,6 +44,16 @@ app.use('/api', limiter);
 
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Passport verification API',
+    health: '/api/health',
+    login: 'POST /api/auth/login',
+    publicPassport: 'GET /api/public/passport/:slug',
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({ success: true, message: 'API is running' });
 });
