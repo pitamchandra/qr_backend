@@ -28,6 +28,7 @@ app.use(cookieParser());
 app.use(mongoSanitize());
 app.use(xss());
 app.use(cors(getCorsOptions()));
+app.options('*', cors(getCorsOptions()));
 
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));

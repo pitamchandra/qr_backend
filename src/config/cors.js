@@ -14,8 +14,16 @@ const getCorsOptions = () => {
     });
   });
 
+  origins.add('https://raimsoep.com');
+
   if (origins.size === 0) {
-    return { origin: true, credentials: true };
+    return {
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      optionsSuccessStatus: 200,
+    };
   }
 
   return {
@@ -26,6 +34,9 @@ const getCorsOptions = () => {
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    optionsSuccessStatus: 200,
   };
 };
 
