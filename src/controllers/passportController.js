@@ -224,10 +224,22 @@ const deletePassport = async (req, res) => {
 };
 
 const getPublicPassport = async (req, res) => {
-  const passport = await Passport.findOne({ uniqueSlug: req.params.slug });
+  const identifier = req.params.identifier;
+  
+  // Try to find by slug first (if it matches the slug pattern PSPT-XXXXX)
+  if (identifier?.startsWith('PSPT-')) {
+    const passport = await Passport.findOne({ uniqueSlug: identifier });
+    if (passport) {
+      return successResponse(res, passport);
+    }
+  }
+  
+  // If not found by slug or doesn't match slug pattern, try by clearanceId
+  const passport = await Passport.findOne({ clearanceId: identifier });
   if (!passport) {
     return errorResponse(res, 'EC card not found', 404);
   }
+  
   return successResponse(res, passport);
 };
 

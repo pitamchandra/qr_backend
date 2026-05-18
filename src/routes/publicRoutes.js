@@ -4,6 +4,8 @@ const catchAsync = require('../utils/catchAsync');
 
 const router = express.Router();
 
-router.get('/passport/:slug', catchAsync(getPublicPassport));
+// Lookup by clearanceId or slug (for backward compatibility)
+// Handles both: /public/passport/:clearanceId and /public/passport/:slug formats
+router.get('/passport/:identifier', catchAsync(getPublicPassport));
 
 module.exports = router;
