@@ -97,6 +97,23 @@ const resolveAttachment = async (files) => {
   return attachmentFileObj;
 };
 
+const attachPublicUrl = (passport) => {
+  const doc = passport.toObject ? passport.toObject() : { ...passport };
+  doc.publicUrl = buildPublicPassportUrl(doc.clearanceId);
+  return doc;
+};
+
+const syncPassportQrCode = async (passport) => {
+  const publicUrl = buildPublicPassportUrl(passport.clearanceId);
+  if (!publicUrl) return passport;
+
+  passport.publicUrl = publicUrl;
+  passport.qrCodeImage = await generateQrCodeImage(publicUrl);
+  await passport.save();
+
+  return passport;
+};
+
 const createPassport = async (req, res) => {
   const requestBody = req.body;
   const validationErrors = validatePassportBody(requestBody);
@@ -120,18 +137,26 @@ const createPassport = async (req, res) => {
     uniqueSlug = generatePassportSlug();
   }
 
-  const publicUrl = buildPublicPassportUrl(uniqueSlug);
+  const clearanceId = requestBody.clearanceId?.trim();
+  const publicUrl = buildPublicPassportUrl(clearanceId);
+  if (!publicUrl) {
+    return errorResponse(res, 'Please fix the highlighted fields', 400, {
+      clearanceId: 'EC no is required to generate the QR code',
+    });
+  }
+
   const qrCodeImage = await generateQrCodeImage(publicUrl);
   const attachmentFile = await resolveAttachment(req.files);
 
   const passport = await Passport.create({
     ...buildCreatePayload(requestBody),
     attachmentFile,
+    publicUrl,
     qrCodeImage,
     uniqueSlug,
   });
 
-  return successResponse(res, passport, 'EC card created successfully', 201);
+  return successResponse(res, attachPublicUrl(passport), 'EC card created successfully', 201);
 };
 
 const getPassports = async (req, res) => {
@@ -172,14 +197,9 @@ const getPassportById = async (req, res) => {
     return errorResponse(res, 'EC card not found', 404);
   }
 
-  const publicUrl = buildPublicPassportUrl(passport.uniqueSlug);
-  const qrCodeImage = await generateQrCodeImage(publicUrl);
-  if (passport.qrCodeImage !== qrCodeImage) {
-    passport.qrCodeImage = qrCodeImage;
-    await passport.save();
-  }
+  await syncPassportQrCode(passport);
 
-  return successResponse(res, passport);
+  return successResponse(res, attachPublicUrl(passport));
 };
 
 const updatePassport = async (req, res) => {
@@ -211,7 +231,9 @@ const updatePassport = async (req, res) => {
 
   applyPassportPayload(passport, req.body);
   await passport.save();
-  return successResponse(res, passport, 'EC card updated successfully');
+  await syncPassportQrCode(passport);
+
+  return successResponse(res, attachPublicUrl(passport), 'EC card updated successfully');
 };
 
 const deletePassport = async (req, res) => {

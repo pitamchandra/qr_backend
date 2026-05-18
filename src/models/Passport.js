@@ -39,6 +39,7 @@ const passportSchema = new mongoose.Schema(
       fileType: { type: String, default: '' },
       originalName: { type: String, default: '' },
     },
+    publicUrl: { type: String, default: '', trim: true },
     qrCodeImage: { type: String, default: '' },
     uniqueSlug: { type: String, required: true, unique: true, uppercase: true, trim: true },
   },

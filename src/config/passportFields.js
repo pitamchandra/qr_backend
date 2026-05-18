@@ -37,7 +37,6 @@ const DATE_FIELDS = [
   'clearanceDate',
 ];
 
-/** All user-facing form fields are optional */
-const REQUIRED_FIELDS = [];
+const REQUIRED_FIELDS = ['clearanceId'];
 
 module.exports = { STRING_FIELDS, DATE_FIELDS, REQUIRED_FIELDS };

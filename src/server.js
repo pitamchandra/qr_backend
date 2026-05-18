@@ -12,7 +12,7 @@ connectDatabase()
   .then(() => {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`API: ${getApiBaseUrl()}/api`);
-      console.log(`Public pages (QR): ${getFrontendBaseUrl()}/passport/:slug`);
+      console.log(`Public pages (QR): ${getFrontendBaseUrl()}/ec-card/verify/:clearanceId`);
     });
   })
   .catch((error) => {

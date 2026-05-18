@@ -33,17 +33,34 @@ const getApiBaseUrl = () => {
   return normalizeOrigin(process.env.API_URL, port) || `http://localhost:${port}`;
 };
 
-/** Frontend host for QR codes (Netlify or local Vite) */
+const DEFAULT_PRODUCTION_SITE = 'https://raimsoep.com';
+
+/** Frontend host for QR codes (must match where users open /ec-card/verify/...) */
 const getFrontendBaseUrl = () => {
-  const frontendUrl = process.env.FRONTEND_URL || process.env.PUBLIC_URL;
-  if (frontendUrl) {
+  const configured =
+    process.env.FRONTEND_URL || process.env.PUBLIC_URL || process.env.PUBLIC_SITE_URL;
+
+  if (configured) {
     const vitePort = String(process.env.FRONTEND_DEV_PORT || 5173);
-    return normalizeOrigin(frontendUrl, vitePort) || frontendUrl.replace(/\/$/, '');
+    return normalizeOrigin(configured, vitePort) || configured.replace(/\/$/, '');
   }
 
-  return getApiBaseUrl();
+  if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    return DEFAULT_PRODUCTION_SITE;
+  }
+
+  const vitePort = String(process.env.FRONTEND_DEV_PORT || 5173);
+  return normalizeOrigin('http://localhost', vitePort) || `http://localhost:${vitePort}`;
 };
 
-const buildPublicPassportUrl = (slug) => `${getFrontendBaseUrl()}/passport/${slug}`;
+/** Public verification URL encoded in QR codes, e.g. https://raimsoep.com/ec-card/verify/RS-I-2026-6000089 */
+const buildPublicPassportUrl = (clearanceId) => {
+  const id = String(clearanceId || '').trim();
+  if (!id) return null;
+  return `${getFrontendBaseUrl()}/ec-card/verify/${encodeURIComponent(id)}`;
+};
 
-module.exports = { getApiBaseUrl, getFrontendBaseUrl, buildPublicPassportUrl };
+/** Legacy slug URLs for older printed QR codes */
+const buildLegacySlugUrl = (slug) => `${getFrontendBaseUrl()}/passport/${slug}`;
+
+module.exports = { getApiBaseUrl, getFrontendBaseUrl, buildPublicPassportUrl, buildLegacySlugUrl };
